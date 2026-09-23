@@ -1086,7 +1086,7 @@ async function setupUserProfile() {
     await firebase.firestore().collection('users').doc(currentUser.uid).set({
       email: currentUser.email,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      shareLink: `${window.location.origin}?to=${currentUser.uid}`
+      shareLink: `${window.location.origin}${window.location.pathname}?to=${currentUser.uid}`
     }, { merge: true });
   } catch (e) {
     console.error("Erreur création profil:", e);
@@ -1118,7 +1118,6 @@ async function handleLogout() {
 // ========== VIEWS & NAVIGATION ==========
 function showAppView() {
   document.getElementById("view-auth").style.display="none";
-  document.getElementById("view-auth").classList.remove("active");
   document.getElementById("view-app").style.display="block";
   document.getElementById('view-auth').classList.remove('active');
   document.getElementById('view-app').classList.add('active');
@@ -1148,7 +1147,7 @@ function updateUserBadge() {
 }
 
 function setShareLink() {
-  const shareLink = `${window.location.origin}?to=${currentUser.uid}`;
+  const shareLink = `${window.location.origin}${window.location.pathname}?to=${currentUser.uid}`;
   document.getElementById('share-link').value = shareLink;
 }
 
@@ -1207,7 +1206,10 @@ function loadInboxMessages() {
           </div>
         `;
         container.appendChild(card);
-      });
+      }, err => {
+      container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📭</div><div class="empty-text">Aucun message</div><div class="empty-subtext">La boîte est vide</div></div>`;
+      console.error(err);
+    });
     });
 }
 
@@ -1384,11 +1386,8 @@ auth.onAuthStateChanged(async (user)=>{
    await checkAdminStatus();
    showAppView();
  }else{
-   currentUser=null;
    document.getElementById("view-auth").style.display="block";
-   document.getElementById("view-auth").classList.add("active");
    document.getElementById("view-app").style.display="none";
-   document.getElementById("view-app").classList.remove("active");
  }
 });
 
