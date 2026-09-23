@@ -13,10 +13,10 @@
   <!-- html2canvas for screenshots -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js"></script>
+  <!-- Firebase SDK (Compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
 
   <style>
     :root {
@@ -866,19 +866,19 @@
       <div class="sidebar">
         <div class="nav-section">
           <div class="nav-label">Navigation</div>
-          <button class="nav-item active" onclick="switchNav('inbox')">
+          <button class="nav-item active" onclick="switchNav('inbox', this)">
             📬 Ma Boîte
           </button>
-          <button class="nav-item" onclick="switchNav('send')">
+          <button class="nav-item" onclick="switchNav('send', this)">
             ✉️ Envoyer
           </button>
         </div>
         <div class="nav-section" id="admin-nav" style="display: none;">
           <div class="nav-label">Admin</div>
-          <button class="nav-item" onclick="switchNav('admin')">
+          <button class="nav-item" onclick="switchNav('admin', this)">
             ⚙️ Tous les Messages
           </button>
-          <button class="nav-item" onclick="switchNav('logs')">
+          <button class="nav-item" onclick="switchNav('logs', this)">
             📊 Statistiques
           </button>
         </div>
@@ -1005,7 +1005,7 @@ const firebaseConfig = {
 // Initialiser Firebase
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
-const db = firebase.getFirestore();
+const db = firebase.firestore();
 
 // Activer la persistance locale
 firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
@@ -1117,6 +1117,9 @@ async function handleLogout() {
 
 // ========== VIEWS & NAVIGATION ==========
 function showAppView() {
+  document.getElementById("view-auth").style.display="none";
+  document.getElementById("view-auth").classList.remove("active");
+  document.getElementById("view-app").style.display="block";
   document.getElementById('view-auth').classList.remove('active');
   document.getElementById('view-app').classList.add('active');
   updateUserBadge();
@@ -1124,9 +1127,9 @@ function showAppView() {
   setShareLink();
 }
 
-function switchNav(section) {
+function switchNav(section, btn=null) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  event.target.classList.add('active');
+  if(btn) btn.classList.add('active');
 
   document.querySelectorAll('#section-inbox, #section-send, #section-admin, #section-logs').forEach(el => {
     el.classList.remove('active');
@@ -1375,16 +1378,18 @@ function downloadMessageImage(msgId, btn) {
 }
 
 // ========== AUTH STATE LISTENER ==========
-auth.onAuthStateChanged(async (user) => {
-  if (user) {
-    currentUser = user;
-    await checkAdminStatus();
-    showAppView();
-  } else {
-    currentUser = null;
-    document.getElementById('view-auth').classList.add('active');
-    document.getElementById('view-app').classList.remove('active');
-  }
+auth.onAuthStateChanged(async (user)=>{
+ if(user){
+   currentUser=user;
+   await checkAdminStatus();
+   showAppView();
+ }else{
+   currentUser=null;
+   document.getElementById("view-auth").style.display="block";
+   document.getElementById("view-auth").classList.add("active");
+   document.getElementById("view-app").style.display="none";
+   document.getElementById("view-app").classList.remove("active");
+ }
 });
 
 // ========== URL PARAMETER HANDLING ==========
