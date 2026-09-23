@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>CIPHER - Messages Anonymes Sécurisés</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- html2canvas for screenshots -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js"></script>
+
+  <style>
+    :root {
+      --primary: #00d9ff;
+      --secondary: #ff006e;
+      --dark-bg: #0a0e27;
+      --darker-bg: #050810;
+      --card-bg: rgba(255, 255, 255, 0.05);
+      --card-border: rgba(0, 217, 255, 0.1);
+      --text-primary: #ffffff;
+      --text-secondary: #b0b8c8;
+      --success: #00ff88;
+      --warning: #ffaa00;
+      --error: #ff3333;
+      --shadow: 0 8px 32px rgba(0, 217, 255, 0.1);
+      --glow: 0 0 20px rgba(0, 217, 255, 0.3);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+    }
+
+    body {
+      background: linear-gradient(135deg, var(--dark-bg) 0%, var(--darker-bg) 100%);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    /* =============== ANIMATIONS =============== */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes glow {
+      0%, 100% { text-shadow: 0 0 10px var(--primary); }
+      50% { text-shadow: 0 0 20px var(--primary), 0 0 30px var(--primary); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    /* =============== LAYOUT =============== */
+    .app {
+      width: 100%;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      flex: 1;
+      display: flex;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 20px;
+      gap: 20px;
+    }
+
+    /* =============== HEADER =============== */
+    .header {
+      background: rgba(10, 14, 39, 0.8);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 20px 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow);
+    }
+
+    .header-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-family: 'Space Mono', monospace;
+      font-size: 1.8rem;
+      font-weight: 700;
+      background: linear-gradient(45deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 3px;
+      animation: glow 2s ease-in-out infinite;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .user-badge {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .user-badge.admin {
+      background: rgba(255, 0, 110, 0.1);
+      border-color: var(--secondary);
+      color: var(--secondary);
+      font-weight: 600;
+    }
+
+    .logout-btn {
+      background: var(--error);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.3s;
+    }
+
+    .logout-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 15px rgba(255, 51, 51, 0.5);
+    }
+
+    /* =============== VIEWS =============== */
+    .view {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    /* =============== SIDEBAR NAV =============== */
+    .sidebar {
+      width: 250px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(10px);
+      height: fit-content;
+      position: sticky;
+      top: 100px;
+    }
+
+    .nav-section {
+      margin-bottom: 20px;
+    }
+
+    .nav-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+
+    .nav-item {
+      padding: 12px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 0.95rem;
+      text-align: left;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-item:hover {
+      background: rgba(0, 217, 255, 0.1);
+      color: var(--primary);
+    }
+
+    .nav-item.active {
+      background: rgba(0, 217, 255, 0.2);
+      color: var(--primary);
+      border-left: 3px solid var(--primary);
+      padding-left: 11px;
+    }
+
+    /* =============== MAIN CONTENT =============== */
+    .main-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .content-section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 30px;
+      backdrop-filter: blur(10px);
+      animation: fadeIn 0.4s ease;
+    }
+
+    .section-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 25px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-subtitle {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+    }
+
+    /* =============== AUTH SCREEN =============== */
+    .auth-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .auth-box {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 40px;
+      width: 100%;
+      max-width: 400px;
+      backdrop-filter: blur(10px);
+      box-shadow: var(--glow);
+      animation: fadeIn 0.6s ease;
+    }
+
+    .auth-logo {
+      font-family: 'Space Mono', monospace;
+      font-size: 2.2rem;
+      text-align: center;
+      margin-bottom: 10px;
+      background: linear-gradient(45deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 3px;
+      font-weight: 700;
+    }
+
+    .auth-subtitle {
+      text-align: center;
+      color: var(--text-secondary);
+      margin-bottom: 30px;
+      font-size: 0.95rem;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 12px 16px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-size: 1rem;
+      transition: all 0.3s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: rgba(0, 217, 255, 0.05);
+      box-shadow: 0 0 15px rgba(0, 217, 255, 0.2);
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 1rem;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .btn-primary {
+      background: linear-gradient(45deg, var(--primary), var(--secondary));
+      color: white;
+      width: 100%;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0, 217, 255, 0.3);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 2px solid var(--primary);
+      color: var(--primary);
+      width: 100%;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(0, 217, 255, 0.1);
+    }
+
+    .auth-toggle {
+      text-align: center;
+      margin-top: 20px;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .auth-toggle button {
+      background: none;
+      border: none;
+      color: var(--primary);
+      cursor: pointer;
+      font-weight: 600;
+      text-decoration: underline;
+    }
+
+    .error-message {
+      background: rgba(255, 51, 51, 0.1);
+      border: 1px solid var(--error);
+      color: var(--error);
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      font-size: 0.9rem;
+    }
+
+    /* =============== SHARE BOX =============== */
+    .share-box {
+      background: linear-gradient(135deg, rgba(0, 217, 255, 0.1), rgba(255, 0, 110, 0.05));
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 25px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(10px);
+    }
+
+    .share-label {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .share-link-group {
+      display: flex;
+      gap: 10px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 4px 4px 4px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 217, 255, 0.2);
+      align-items: center;
+    }
+
+    .share-link-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--primary);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .share-link-input::selection {
+      background: rgba(0, 217, 255, 0.3);
+    }
+
+    .copy-link-btn {
+      background: var(--primary);
+      color: var(--darker-bg);
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .copy-link-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 15px rgba(0, 217, 255, 0.5);
+    }
+
+    .copy-link-btn.copied {
+      background: var(--success);
+    }
+
+    /* =============== MESSAGE COMPOSER =============== */
+    .message-composer {
+      background: linear-gradient(135deg, rgba(255, 0, 110, 0.05), rgba(0, 217, 255, 0.05));
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 25px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(10px);
+    }
+
+    .composer-label {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .composer-textarea {
+      width: 100%;
+      height: 140px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+      color: var(--text-primary);
+      font-size: 1rem;
+      font-family: 'Inter', sans-serif;
+      resize: none;
+      margin-bottom: 15px;
+      transition: all 0.3s;
+    }
+
+    .composer-textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: rgba(0, 217, 255, 0.05);
+      box-shadow: 0 0 15px rgba(0, 217, 255, 0.2);
+    }
+
+    .composer-textarea::placeholder {
+      color: var(--text-secondary);
+    }
+
+    .composer-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .btn-send {
+      background: linear-gradient(45deg, var(--secondary), var(--primary));
+      color: white;
+      padding: 12px 28px;
+      font-weight: 700;
+    }
+
+    .btn-send:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(255, 0, 110, 0.4);
+    }
+
+    .btn-cancel {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-secondary);
+      padding: 12px 28px;
+    }
+
+    .btn-cancel:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* =============== MESSAGE CARDS =============== */
+    .messages-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    .message-card {
+      background: linear-gradient(135deg, rgba(0, 217, 255, 0.08), rgba(255, 0, 110, 0.05));
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 20px;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+      animation: slideInRight 0.4s ease;
+    }
+
+    .message-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(0, 217, 255, 0.1), transparent);
+      transition: left 0.5s;
+    }
+
+    .message-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--primary);
+      box-shadow: 0 10px 40px rgba(0, 217, 255, 0.2);
+    }
+
+    .message-card:hover::before {
+      left: 100%;
+    }
+
+    .message-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      font-size: 0.8rem;
+    }
+
+    .message-badge {
+      background: rgba(0, 217, 255, 0.2);
+      color: var(--primary);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    .message-badge.received {
+      background: rgba(0, 255, 136, 0.2);
+      color: var(--success);
+    }
+
+    .message-time {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    .message-text {
+      color: var(--text-primary);
+      font-size: 1.05rem;
+      line-height: 1.6;
+      margin-bottom: 15px;
+      word-break: break-word;
+      font-weight: 500;
+    }
+
+    .message-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 15px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    .message-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-btn {
+      background: rgba(0, 217, 255, 0.1);
+      color: var(--primary);
+      border: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 600;
+    }
+
+    .action-btn:hover {
+      background: rgba(0, 217, 255, 0.2);
+      transform: scale(1.05);
+    }
+
+    /* =============== ADMIN PANEL =============== */
+    .admin-filters {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      background: rgba(0, 217, 255, 0.1);
+      color: var(--primary);
+      border: 1px solid var(--card-border);
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .filter-btn.active {
+      background: var(--primary);
+      color: var(--darker-bg);
+    }
+
+    .filter-btn:hover {
+      border-color: var(--primary);
+    }
+
+    .admin-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: rgba(0, 217, 255, 0.05);
+      border: 1px solid var(--card-border);
+      padding: 15px;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 5px;
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+    }
+
+    /* =============== EMPTY STATE =============== */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
+    }
+
+    .empty-icon {
+      font-size: 3rem;
+      margin-bottom: 15px;
+      opacity: 0.5;
+    }
+
+    .empty-text {
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+    }
+
+    .empty-subtext {
+      font-size: 0.9rem;
+      opacity: 0.7;
+    }
+
+    /* =============== LOADING =============== */
+    .loading {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-secondary);
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(0, 217, 255, 0.2);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .spinner-text {
+      margin-top: 15px;
+    }
+
+    /* =============== RESPONSIVE =============== */
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+        padding: 15px;
+      }
+
+      .sidebar {
+        width: 100%;
+        position: static;
+      }
+
+      .content-section {
+        padding: 20px;
+      }
+
+      .section-title {
+        font-size: 1.3rem;
+      }
+
+      .messages-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .auth-box {
+        padding: 30px 20px;
+      }
+
+      .header-content {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+      }
+
+      .header-right {
+        flex-direction: column;
+        width: 100%;
+      }
+
+      .logout-btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app" id="app">
+  
+  <!-- ============ AUTH VIEW ============ -->
+  <div id="view-auth" class="view active">
+    <div class="auth-container">
+      <div class="auth-box">
+        <div class="auth-logo">◆ CIPHER ◆</div>
+        <div class="auth-subtitle">Messages Anonymes Absolus</div>
+        
+        <div id="auth-error" class="error-message" style="display: none;"></div>
+
+        <!-- LOGIN FORM -->
+        <div id="login-form">
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" id="login-email" class="form-input" placeholder="vous@exemple.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mot de passe</label>
+            <input type="password" id="login-password" class="form-input" placeholder="••••••••">
+          </div>
+          <button class="btn btn-primary" onclick="handleLogin()">Se Connecter</button>
+          <div class="auth-toggle">
+            Nouveau sur CIPHER? <button onclick="toggleAuthForm()">Créer un compte</button>
+          </div>
+        </div>
+
+        <!-- SIGNUP FORM -->
+        <div id="signup-form" style="display: none;">
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" id="signup-email" class="form-input" placeholder="vous@exemple.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mot de passe</label>
+            <input type="password" id="signup-password" class="form-input" placeholder="••••••••">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirmer le mot de passe</label>
+            <input type="password" id="signup-password-confirm" class="form-input" placeholder="••••••••">
+          </div>
+          <button class="btn btn-primary" onclick="handleSignup()">Créer un Compte</button>
+          <div class="auth-toggle">
+            Vous avez un compte? <button onclick="toggleAuthForm()">Se Connecter</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MAIN APP VIEW ============ -->
+  <div id="view-app" class="view" style="display: none;">
+    
+    <!-- HEADER -->
+    <div class="header">
+      <div class="header-content">
+        <div class="logo">◆ CIPHER ◆</div>
+        <div class="header-right">
+          <div class="user-badge" id="user-badge">
+            User: <span id="user-id-short">---</span>
+          </div>
+          <div class="user-badge admin" id="admin-badge" style="display: none;">
+            🔐 ADMIN
+          </div>
+          <button class="logout-btn" onclick="handleLogout()">Déconnecter</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <div class="container">
+      
+      <!-- SIDEBAR NAV -->
+      <div class="sidebar">
+        <div class="nav-section">
+          <div class="nav-label">Navigation</div>
+          <button class="nav-item active" onclick="switchNav('inbox')">
+            📬 Ma Boîte
+          </button>
+          <button class="nav-item" onclick="switchNav('send')">
+            ✉️ Envoyer
+          </button>
+        </div>
+        <div class="nav-section" id="admin-nav" style="display: none;">
+          <div class="nav-label">Admin</div>
+          <button class="nav-item" onclick="switchNav('admin')">
+            ⚙️ Tous les Messages
+          </button>
+          <button class="nav-item" onclick="switchNav('logs')">
+            📊 Statistiques
+          </button>
+        </div>
+      </div>
+
+      <!-- MAIN CONTENT -->
+      <div class="main-content">
+        
+        <!-- INBOX VIEW -->
+        <div id="section-inbox" class="view active">
+          <div class="content-section">
+            <div class="section-title">📬 Votre Espace Personnel</div>
+            
+            <div class="share-box">
+              <div class="share-label">🔗 Votre lien d'anonymat</div>
+              <div class="share-link-group">
+                <input type="text" class="share-link-input" id="share-link" readonly>
+                <button class="copy-link-btn" onclick="copyShareLink()" id="copy-btn">Copier</button>
+              </div>
+              <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 10px;">
+                ⚡ Partagez ce lien pour recevoir des messages anonymes. Personne ne saura qui les envoie.
+              </p>
+            </div>
+
+            <div class="section-title" style="margin-top: 30px;">📥 Vos Messages</div>
+            <div id="inbox-messages" class="messages-grid">
+              <div class="loading">
+                <div class="spinner"></div>
+                <div class="spinner-text">Chargement des messages...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEND VIEW -->
+        <div id="section-send" class="view">
+          <div class="content-section">
+            <div class="section-title">✉️ Envoyer un Message Anonyme</div>
+            <p class="section-subtitle">Entrez l'ID ou le lien de la personne et envoyez un message complètement anonyme</p>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+              <label class="form-label">Lien ou ID du destinataire</label>
+              <input type="text" id="recipient-id" class="form-input" placeholder="Collez le lien reçu ou l'ID">
+            </div>
+
+            <div class="message-composer">
+              <div class="composer-label">Votre Message</div>
+              <textarea class="composer-textarea" id="message-text" placeholder="Écrivez votre message anonyme ici..."></textarea>
+              <div class="composer-buttons">
+                <button class="btn btn-cancel" onclick="clearComposer()">Effacer</button>
+                <button class="btn btn-send" onclick="sendMessage()">Envoyer le Message</button>
+              </div>
+            </div>
+
+            <div id="send-feedback" style="display: none;"></div>
+          </div>
+        </div>
+
+        <!-- ADMIN VIEW -->
+        <div id="section-admin" class="view">
+          <div class="content-section">
+            <div class="section-title">⚙️ Tous les Messages du Système</div>
+            
+            <div class="admin-stats">
+              <div class="stat-card">
+                <div class="stat-value" id="total-messages">0</div>
+                <div class="stat-label">Messages Total</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" id="total-users">0</div>
+                <div class="stat-label">Utilisateurs</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" id="today-messages">0</div>
+                <div class="stat-label">Aujourd'hui</div>
+              </div>
+            </div>
+
+            <div class="section-title" style="font-size: 1.2rem;">Tous les Messages</div>
+            <div id="admin-messages" class="messages-grid">
+              <div class="loading">
+                <div class="spinner"></div>
+                <div class="spinner-text">Chargement...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LOGS VIEW -->
+        <div id="section-logs" class="view">
+          <div class="content-section">
+            <div class="section-title">📊 Statistiques en Temps Réel</div>
+            
+            <div id="logs-content">
+              <div class="loading">
+                <div class="spinner"></div>
+                <div class="spinner-text">Analyse des données...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ============ JAVASCRIPT ============ -->
+<script>
+
+// ========== CONFIGURATION FIREBASE ==========
+// ✅ TES VRAIES DONNÉES FIREBASE - TOUTES CONFIGURÉES!
+const firebaseConfig = {
+  apiKey: "AIzaSyD_8IfYBgMZr56zNZ2nZ7cxPUWYsWrG_Xc",
+  authDomain: "cipher-app-c811c.firebaseapp.com",
+  projectId: "cipher-app-c811c",
+  storageBucket: "cipher-app-c811c.firebasestorage.app",
+  messagingSenderId: "1032970480449",
+  appId: "1:1032970480449:web:818e5a253fb26cc3dacfc0"
+};
+
+// Initialiser Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.getFirestore();
+
+// Activer la persistance locale
+firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+  .catch(err => console.error("Erreur persistance:", err));
+
+// ========== STATE ==========
+let currentUser = null;
+let isAdmin = false;
+
+// ========== AUTH ==========
+function toggleAuthForm() {
+  document.getElementById('login-form').style.display = 
+    document.getElementById('login-form').style.display === 'none' ? 'block' : 'none';
+  document.getElementById('signup-form').style.display = 
+    document.getElementById('signup-form').style.display === 'none' ? 'block' : 'none';
+  document.getElementById('auth-error').style.display = 'none';
+}
+
+async function handleSignup() {
+  const email = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+  const confirmPassword = document.getElementById('signup-password-confirm').value;
+  const errorEl = document.getElementById('auth-error');
+
+  if (!email || !password || !confirmPassword) {
+    errorEl.textContent = '❌ Veuillez remplir tous les champs';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    errorEl.textContent = '❌ Les mots de passe ne correspondent pas';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  if (password.length < 6) {
+    errorEl.textContent = '❌ Le mot de passe doit contenir au moins 6 caractères';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    const result = await auth.createUserWithEmailAndPassword(email, password);
+    currentUser = result.user;
+    await setupUserProfile();
+    showAppView();
+  } catch (error) {
+    errorEl.textContent = '❌ ' + error.message;
+    errorEl.style.display = 'block';
+  }
+}
+
+async function handleLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errorEl = document.getElementById('auth-error');
+
+  if (!email || !password) {
+    errorEl.textContent = '❌ Veuillez remplir tous les champs';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    const result = await auth.signInWithEmailAndPassword(email, password);
+    currentUser = result.user;
+    await checkAdminStatus();
+    showAppView();
+  } catch (error) {
+    errorEl.textContent = '❌ Identifiants invalides';
+    errorEl.style.display = 'block';
+  }
+}
+
+async function setupUserProfile() {
+  try {
+    await firebase.firestore().collection('users').doc(currentUser.uid).set({
+      email: currentUser.email,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      shareLink: `${window.location.origin}?to=${currentUser.uid}`
+    }, { merge: true });
+  } catch (e) {
+    console.error("Erreur création profil:", e);
+  }
+}
+
+async function checkAdminStatus() {
+  try {
+    const doc = await firebase.firestore().collection('admins').doc(currentUser.uid).get();
+    isAdmin = doc.exists;
+    document.getElementById('admin-nav').style.display = isAdmin ? 'block' : 'none';
+    document.getElementById('admin-badge').style.display = isAdmin ? 'block' : 'none';
+  } catch (e) {
+    isAdmin = false;
+  }
+}
+
+async function handleLogout() {
+  try {
+    await auth.signOut();
+    currentUser = null;
+    isAdmin = false;
+    location.reload();
+  } catch (error) {
+    console.error("Erreur déconnexion:", error);
+  }
+}
+
+// ========== VIEWS & NAVIGATION ==========
+function showAppView() {
+  document.getElementById('view-auth').classList.remove('active');
+  document.getElementById('view-app').classList.add('active');
+  updateUserBadge();
+  loadInboxMessages();
+  setShareLink();
+}
+
+function switchNav(section) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  event.target.classList.add('active');
+
+  document.querySelectorAll('#section-inbox, #section-send, #section-admin, #section-logs').forEach(el => {
+    el.classList.remove('active');
+  });
+
+  document.getElementById(`section-${section}`).classList.add('active');
+
+  if (section === 'admin') loadAdminMessages();
+  if (section === 'logs') loadStatistics();
+}
+
+// ========== USER INTERFACE ==========
+function updateUserBadge() {
+  const shortId = currentUser.uid.substring(0, 8).toUpperCase();
+  document.getElementById('user-id-short').textContent = shortId;
+}
+
+function setShareLink() {
+  const shareLink = `${window.location.origin}?to=${currentUser.uid}`;
+  document.getElementById('share-link').value = shareLink;
+}
+
+function copyShareLink() {
+  const input = document.getElementById('share-link');
+  input.select();
+  document.execCommand('copy');
+  
+  const btn = document.getElementById('copy-btn');
+  btn.textContent = '✓ Copié!';
+  btn.classList.add('copied');
+  
+  setTimeout(() => {
+    btn.textContent = 'Copier';
+    btn.classList.remove('copied');
+  }, 2000);
+}
+
+// ========== INBOX MESSAGES ==========
+function loadInboxMessages() {
+  const container = document.getElementById('inbox-messages');
+  
+  firebase.firestore()
+    .collection('messages')
+    .where('recipientId', '==', currentUser.uid)
+    .orderBy('timestamp', 'desc')
+    .limit(50)
+    .onSnapshot(snapshot => {
+      container.innerHTML = '';
+
+      if (snapshot.empty) {
+        container.innerHTML = `
+          <div class="empty-state" style="grid-column: 1/-1;">
+            <div class="empty-icon">📭</div>
+            <div class="empty-text">Pas encore de messages</div>
+            <div class="empty-subtext">Partagez votre lien d'anonymat pour en recevoir</div>
+          </div>
+        `;
+        return;
+      }
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const date = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString('fr-FR') : 'Date inconnue';
+        
+        const card = document.createElement('div');
+        card.className = 'message-card';
+        card.innerHTML = `
+          <div class="message-meta">
+            <span class="message-badge received">REÇU</span>
+            <span class="message-time">${date}</span>
+          </div>
+          <div class="message-text">"${data.text}"</div>
+          <div class="message-actions">
+            <button class="action-btn" onclick="downloadMessageImage('${doc.id}', this)">📥 Télécharger</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    });
+}
+
+// ========== SEND MESSAGE ==========
+function clearComposer() {
+  document.getElementById('recipient-id').value = '';
+  document.getElementById('message-text').value = '';
+  document.getElementById('send-feedback').style.display = 'none';
+}
+
+async function sendMessage() {
+  const recipientId = document.getElementById('recipient-id').value.trim();
+  const text = document.getElementById('message-text').value.trim();
+  const feedback = document.getElementById('send-feedback');
+
+  if (!recipientId || !text) {
+    feedback.innerHTML = '<div class="error-message">❌ Veuillez remplir tous les champs</div>';
+    feedback.style.display = 'block';
+    return;
+  }
+
+  // Extraire l'ID si c'est un lien complet
+  let targetId = recipientId;
+  if (recipientId.includes('?to=')) {
+    targetId = recipientId.split('?to=')[1];
+  }
+
+  try {
+    await firebase.firestore().collection('messages').add({
+      senderId: currentUser.uid,
+      recipientId: targetId,
+      text: text,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    feedback.innerHTML = '<div style="background: rgba(0, 255, 136, 0.1); border: 1px solid var(--success); color: var(--success); padding: 12px; border-radius: 8px; font-weight: 600;">✅ Message envoyé avec succès!</div>';
+    feedback.style.display = 'block';
+    clearComposer();
+
+    setTimeout(() => {
+      feedback.style.display = 'none';
+    }, 3000);
+  } catch (error) {
+    feedback.innerHTML = `<div class="error-message">❌ Erreur: ${error.message}</div>`;
+    feedback.style.display = 'block';
+  }
+}
+
+// ========== ADMIN PANEL ==========
+function loadAdminMessages() {
+  const container = document.getElementById('admin-messages');
+  
+  firebase.firestore()
+    .collection('messages')
+    .orderBy('timestamp', 'desc')
+    .limit(100)
+    .onSnapshot(snapshot => {
+      container.innerHTML = '';
+
+      if (snapshot.empty) {
+        container.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;">Aucun message</div>';
+        return;
+      }
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const date = new Date(data.timestamp.toDate()).toLocaleString('fr-FR');
+        const senderShort = data.senderId.substring(0, 8).toUpperCase();
+        const recipientShort = data.recipientId.substring(0, 8).toUpperCase();
+
+        const card = document.createElement('div');
+        card.className = 'message-card';
+        card.innerHTML = `
+          <div class="message-meta">
+            <span class="message-badge">DE: ${senderShort}</span>
+            <span class="message-time">${date}</span>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;">
+            ➜ À: ${recipientShort}
+          </div>
+          <div class="message-text">"${data.text}"</div>
+        `;
+        container.appendChild(card);
+      });
+
+      updateAdminStats();
+    });
+}
+
+function updateAdminStats() {
+  firebase.firestore()
+    .collection('messages')
+    .get()
+    .then(snap => {
+      document.getElementById('total-messages').textContent = snap.size;
+    });
+
+  firebase.firestore()
+    .collection('users')
+    .get()
+    .then(snap => {
+      document.getElementById('total-users').textContent = snap.size;
+    });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  firebase.firestore()
+    .collection('messages')
+    .where('timestamp', '>=', today)
+    .get()
+    .then(snap => {
+      document.getElementById('today-messages').textContent = snap.size;
+    });
+}
+
+async function loadStatistics() {
+  const content = document.getElementById('logs-content');
+  
+  try {
+    const msgsSnap = await firebase.firestore().collection('messages').get();
+    const usersSnap = await firebase.firestore().collection('users').get();
+    
+    content.innerHTML = `
+      <div class="messages-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+        <div class="stat-card" style="padding: 20px;">
+          <div class="stat-value">${msgsSnap.size}</div>
+          <div class="stat-label">Messages Total</div>
+        </div>
+        <div class="stat-card" style="padding: 20px;">
+          <div class="stat-value">${usersSnap.size}</div>
+          <div class="stat-label">Utilisateurs Actifs</div>
+        </div>
+        <div class="stat-card" style="padding: 20px;">
+          <div class="stat-value">${(msgsSnap.size / Math.max(usersSnap.size, 1)).toFixed(1)}</div>
+          <div class="stat-label">Moyenne par Utilisateur</div>
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    content.innerHTML = '<div class="error-message">Erreur chargement statistiques</div>';
+  }
+}
+
+// ========== DOWNLOAD IMAGE ==========
+function downloadMessageImage(msgId, btn) {
+  const card = btn.closest('.message-card');
+  btn.style.opacity = '0.5';
+  btn.disabled = true;
+
+  html2canvas(card, {
+    backgroundColor: '#0a0e27',
+    scale: 2
+  }).then(canvas => {
+    btn.style.opacity = '1';
+    btn.disabled = false;
+
+    // Lien de téléchargement automatique
+    const link = document.createElement('a');
+    link.download = `CIPHER_Message_${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }).catch(err => {
+    console.error("Erreur téléchargement:", err);
+    btn.style.opacity = '1';
+    btn.disabled = false;
+  });
+}
+
+// ========== AUTH STATE LISTENER ==========
+auth.onAuthStateChanged(async (user) => {
+  if (user) {
+    currentUser = user;
+    await checkAdminStatus();
+    showAppView();
+  } else {
+    currentUser = null;
+    document.getElementById('view-auth').classList.add('active');
+    document.getElementById('view-app').classList.remove('active');
+  }
+});
+
+// ========== URL PARAMETER HANDLING ==========
+window.addEventListener('load', () => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('to')) {
+    const recipientId = params.get('to');
+    document.getElementById('recipient-id').value = recipientId;
+    switchNav('send');
+  }
+});
+
+</script>
+
+</body>
+</html>
